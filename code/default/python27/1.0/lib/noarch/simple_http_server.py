@@ -124,6 +124,7 @@ class HttpServerHandler():
                 return
 
             self.parse_request()
+            self.close_connection = 0
 
             if self.command == "GET":
                 self.do_GET()
@@ -144,10 +145,10 @@ class HttpServerHandler():
                 return
 
             self.wfile.flush() #actually send the response if not already done.
-            self.close_connection = 0
+            
         except socket.error as e:
             #logging.warn("socket error:%r", e)
-            pass
+            self.close_connection = 1
         except IOError as e:
             if e.errno == errno.EPIPE:
                 logging.warn("PIPE error:%r", e)
@@ -157,9 +158,10 @@ class HttpServerHandler():
                 pass
         #except OpenSSL.SSL.SysCallError as e:
         #    logging.warn("socket error:%r", e)
+            self.close_connection = 1
         except Exception as e:
             logging.exception("handler:%r cmd:%s path:%s from:%s", e,  self.command, self.path, self.address_string())
-            pass
+            self.close_connection = 1
 
     def do_GET(self):
         logging.warn("unhandler cmd:%s from:%s", self.command, self.address_string())
@@ -268,7 +270,10 @@ class HTTPServer():
             self.add_listen(addr)
 
     def add_listen(self, addr):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if ":" in addr[0]:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        else:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind(addr)
@@ -325,6 +330,7 @@ class HTTPServer():
             sock.close()
         self.sockets = []
 
+
 class TestHttpServer(HttpServerHandler):
     def __init__(self, sock, client, args):
         self.data_path = args
@@ -346,7 +352,13 @@ class TestHttpServer(HttpServerHandler):
 
         logging.debug("GET %s from %s:%d", self.path, self.client_address[0], self.client_address[1])
 
-        if url_path == '/':
+        if url_path == "/test":
+            tme = (datetime.datetime.today() + datetime.timedelta(minutes=330)).strftime('%a, %d %b %Y %H:%M:%S GMT')
+            head = 'HTTP/1.1 200\r\nAccess-Control-Allow-Origin: *\r\nCache-Control:public, max-age=31536000\r\n'
+            head += 'Expires: %s\r\nContent-Type: text/plain\r\nContent-Length: 4\r\n\r\nOK\r\n' % (tme)
+            self.wfile.write(head.encode())
+
+        elif url_path == '/':
             data = "OK\r\n"
             self.wfile.write('HTTP/1.1 200\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: %d\r\n\r\n%s' %(len(data), data) )
         elif url_path == '/null':

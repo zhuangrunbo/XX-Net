@@ -30,12 +30,15 @@ class Socks5Server():
                 self.socks5_handler()
             elif socks_version == "C":
                 self.https_handler()
+            elif socks_version in ["G", "P"]:
+                xlog.warn("http proxy protocal is not supported now, please use Socks5.")
+                return
             else:
                 xlog.warn("socks version:%s not supported",  utils.str2hex(socks_version))
                 return
 
         except socket.error as e:
-            xlog.exception('socks handler read error %r', e)
+            xlog.warn('socks handler read error %r', e)
         except Exception as e:
             xlog.exception("any err:%r", e)
 
@@ -211,6 +214,9 @@ class Socks5Server():
             return
 
         xlog.info("https %r connect to %s:%d conn_id:%d", self.client_address, host, port, conn_id)
-        sock.send(b'HTTP/1.1 200 OK\r\n\r\n')
+        try:
+            sock.send(b'HTTP/1.1 200 OK\r\n\r\n')
+        except:
+            xlog.warn("https %r connect to %s:%d conn_id:%d closed.", self.client_address, host, port, conn_id)
 
         g.session.conn_list[conn_id].start(block=True)

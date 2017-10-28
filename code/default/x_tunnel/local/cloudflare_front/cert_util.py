@@ -34,7 +34,7 @@ if __name__ == "__main__":
         sys.path.append(darwin_lib)
 
 from xlog import getLogger
-xlog = getLogger("gae_proxy")
+xlog = getLogger("cloudflare_front")
 
 import OpenSSL
 
@@ -51,23 +51,6 @@ def get_cmd_out(cmd):
     out = proc.stdout
     lines = out.readlines()
     return lines
-
-
-class _GeneralName(univ.Choice):
-    # We are only interested in dNSNames. We use a default handler to ignore
-    # other types.
-    componentType = namedtype.NamedTypes(
-        namedtype.NamedType('dNSName', char.IA5String().subtype(
-                implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2)
-            )
-        ),
-    )
-
-
-class _GeneralNames(univ.SequenceOf):
-    componentType = _GeneralName()
-    sizeSpec = univ.SequenceOf.sizeSpec + constraint.ValueSizeConstraint(1, 1024)
-
 
 class SSLCert:
     def __init__(self, cert):
